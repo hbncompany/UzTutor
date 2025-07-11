@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "443806245910",
+    "project_id": "repetitor-resourses",
+    "storage_bucket": "repetitor-resourses.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:443806245910:android:a935b7d8ded3362e80c137",
+        "android_client_info": {
+          "package_name": "com.hbncompany.repetitorresurs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPttYRtZd6RZIBEp20tIZPExY8ujpYwsQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

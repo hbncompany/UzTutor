@@ -1,147 +1,163 @@
-// Based on https://dartpad.dev/?id=d57c6c898dabb8c6fb41018588b8cf73
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'firebase_options.dart';
+import 'l10n/app_localizations.dart';
+import 'providers/app_language_provider.dart';
+import 'providers/app_theme_provider.dart';
+import 'providers/user_provider.dart';
 
-const Color darkBlue = Color.fromARGB(255, 18, 32, 47);
+import 'screens/onboarding_screen.dart';
+import 'screens/auth_screen.dart';
+import 'screens/client_home_screen.dart';
+import 'screens/tutor_list_screen.dart';
+import 'screens/tutor_profile_screen.dart';
+import 'screens/chat_screen.dart';
+import 'screens/resources_screen.dart';
+import 'screens/contact_developer_screen.dart';
+import 'screens/my_profile_screen.dart';
+import 'screens/edit_profile_screen.dart';
+import 'screens/chat_list_screen.dart';
+import 'screens/other_user_profile_screen.dart';
+import 'screens/teaching_center_list_screen.dart';
+import 'screens/teaching_center_profile_screen.dart'; // Янги экранни импорт қилиш
+import 'screens/requests_screen.dart';
+import 'package:repetitor_resurs/screens/bookmarked_tutors_screen.dart'; // Янги импорт
+import 'package:repetitor_resurs/screens/bookmarked_teaching_centers_screen.dart'; // Янги импорт
 
-const messageLimit = 30;
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
-  try {
-    WidgetsFlutterBinding.ensureInitialized();
-  } catch (e, st) {
-    print(e);
-    print(st);
-  }
-
-  // The first step to using Firebase is to configure it so that our code can
-  // find the Firebase project on the servers. This is not a security risk, as
-  // explained here: https://stackoverflow.com/a/37484053
+  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // We sign the user in anonymously, meaning they get a user ID without having
-  // to provide credentials. While this doesn't allow us to identify the user,
-  // this would, for example, still allow us to associate data in the database
-  // with each user.
-  await FirebaseAuth.instance.signInAnonymously();
+  final prefs = await SharedPreferences.getInstance();
+  final bool hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
 
-  runApp(MyApp());
+  final userProvider = UserProvider();
+  await userProvider.setUser(FirebaseAuth.instance.currentUser);
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppLanguageProvider()),
+        ChangeNotifierProvider(create: (_) => AppThemeProvider()),
+        ChangeNotifierProvider.value(value: userProvider),
+      ],
+      child: MyApp(hasSeenOnboarding: hasSeenOnboarding),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  final DateFormat formatter = DateFormat('MM/dd HH:mm:SS');
+class MyApp extends StatefulWidget {
+  final bool hasSeenOnboarding;
 
-  MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key, required this.hasSeenOnboarding});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Provider.of<UserProvider>(context, listen: false).setUser(user);
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // The user can send a message to Firebase. What they can send is
-              // protected by server-side security rules, which in this case
-              // only allow chat messages that this regular expression:
-              //
-              //    ^((?i)hello|\\s|firebase|welcome|to|summit|the|this|
-              //    everyone|good|morning|afternoon|firestore|meetup|
-              //    devfest|virtual|online)+
-              //
-              // In a real project you'd probably expand that, for example by
-              // only allowing users that you explicitly approve to post
-              // messages.
-              const SizedBox(height: 32),
-              Text(
-                'Enter a new message',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'You can type a message into this field and hit the enter key '
-                'to add it to the stream. The security rules for the '
-                'Firestore database only allow certain words, though! Check '
-                'the comments in the code to the left for details.',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 16),
-              FractionallySizedBox(
-                widthFactor: 0.5,
-                child: TextField(
-                  decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Enter your message and hit Enter'),
-                  onSubmitted: (String value) {
-                    FirebaseFirestore.instance.collection('chat').add(
-                      {
-                        'message': value,
-                        'timestamp': DateTime.now().millisecondsSinceEpoch
-                      },
-                    );
-                  },
-                ),
-              ),
-              // We use a stream builder to both read the initial data from the
-              // database and listen to updates to that data in realtime. The
-              // database we use is called Firestore, and we are asking the 10
-              // most recent messages.
-              const SizedBox(height: 32),
-              Text(
-                'The latest messages',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('chat')
-                      .orderBy('timestamp', descending: true)
-                      .limit(messageLimit)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return Center(child: Text('$snapshot.error'));
-                    } else if (!snapshot.hasData) {
-                      return const Center(
-                        child: SizedBox(
-                          width: 50,
-                          height: 50,
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
+    final appLanguage = Provider.of<AppLanguageProvider>(context);
+    final appTheme = Provider.of<AppThemeProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
 
-                    var docs = snapshot.data!.docs;
-
-                    return ListView.builder(
-                      itemCount: docs.length,
-                      itemBuilder: (context, i) {
-                        return ListTile(
-                          leading: DefaultTextStyle.merge(
-                            style: const TextStyle(color: Colors.indigo),
-                            child: Text(formatter.format(
-                                DateTime.fromMillisecondsSinceEpoch(
-                                    docs[i]['timestamp']))),
-                          ),
-                          title: Text('${docs[i]['message']}'),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
+    if (userProvider.isLoadingProfile) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text(AppLocalizations.of(context).translate('loading')),
+              ],
+            ),
           ),
         ),
-      ),
+      );
+    }
+
+    Widget initialRoute;
+    if (!widget.hasSeenOnboarding) {
+      initialRoute = const OnboardingScreen();
+    } else if (userProvider.firebaseUser == null) {
+      initialRoute = const AuthScreen();
+    } else {
+      initialRoute = const ClientHomeScreen();
+    }
+
+    return MaterialApp(
+      title: 'RepeitorResurs',
+      debugShowCheckedModeBanner: false,
+      theme: appTheme.lightTheme,
+      darkTheme: appTheme.darkTheme,
+      themeMode: appTheme.themeMode,
+      locale: appLanguage.appLocale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: initialRoute,
+      routes: {
+        '/auth': (context) => const AuthScreen(),
+        '/client_home': (context) => const ClientHomeScreen(),
+        '/tutor_list': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is Map<String, dynamic> &&
+              args.containsKey('teachingCenterId')) {
+            return TutorListScreen(teachingCenterId: args['teachingCenterId']);
+          }
+          return const TutorListScreen();
+        },
+        '/tutor_profile': (context) {
+          final String? tutorId =
+              ModalRoute.of(context)?.settings.arguments as String?;
+          return TutorProfileScreen(tutorId: tutorId);
+        },
+        '/chat': (context) => ChatScreen(
+            tutorData: ModalRoute.of(context)!.settings.arguments
+                as Map<String, dynamic>),
+        '/resources': (context) => const ResourcesScreen(),
+        '/contact': (context) => const ContactDeveloperScreen(),
+        '/my_profile': (context) => const MyProfileScreen(),
+        '/edit_profile': (context) => const EditProfileScreen(),
+        '/chat_list': (context) => const ChatListScreen(),
+        '/other_user_profile': (context) => OtherUserProfileScreen(
+            userId: ModalRoute.of(context)!.settings.arguments as String),
+        '/teaching_center_list': (context) => const TeachingCenterListScreen(),
+        '/teaching_center_profile': (context) => TeachingCenterProfileScreen(
+            centerId: ModalRoute.of(context)!.settings.arguments
+                as String), // Янги маршрут
+        '/requests': (context) => const RequestsScreen(),
+        '/bookmarked_tutors': (context) =>
+            const BookmarkedTutorsScreen(), // Янги маршрут
+        '/bookmarked_teaching_centers': (context) =>
+            const BookmarkedTeachingCentersScreen(), // Янги маршрут
+      },
     );
   }
 }

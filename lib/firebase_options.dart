@@ -20,10 +20,7 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'try to add using FlutLab Firebase Configuration',
-        );
+        return android;
       case TargetPlatform.iOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for iOS - '
@@ -51,10 +48,21 @@ class DefaultFirebaseOptions {
     }
   }
 
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyBPttYRtZd6RZIBEp20tIZPExY8ujpYwsQ',
+    appId: '1:443806245910:android:a935b7d8ded3362e80c137',
+    messagingSenderId: '443806245910',
+    projectId: 'repetitor-resourses',
+    storageBucket: 'repetitor-resourses.firebasestorage.app'
+  );
+
   static const FirebaseOptions web = FirebaseOptions(
-      apiKey: "AIzaSyAhE5iTdU1MflQxb4_M_uHiXJR9EC_mE_I",
-      authDomain: "nanochat.firebaseapp.com",
-      projectId: "firebase-nanochat",
-      messagingSenderId: '137230848633',
-      appId: '1:137230848633:web:89e9b54f881fa0b843baa8');
+    apiKey: 'AIzaSyCGDk6ivBGgOlqRfDjcptI825Yv_jTlf78',
+    authDomain: 'repetitor-resourses.firebaseapp.com',
+    projectId: 'repetitor-resourses',
+    storageBucket: 'repetitor-resourses.firebasestorage.app',
+    messagingSenderId: '443806245910',
+    appId: '1:443806245910:web:d26e7797a27781bf80c137',
+    measurementId: 'G-10BHY1PY2T'
+  );
 }
